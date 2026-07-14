@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Attendance Tracker</title>
+
+<style>
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    background:#0f172a;
+    color:white;
+    padding:18px;
+}
+
+.container{
+    max-width:850px;
+    margin:auto;
+}
+
+.card{
+    background:#1e293b;
+    border-radius:18px;
+    padding:20px;
+    margin-bottom:20px;
+    box-shadow:0 10px 30px rgba(0,0,0,.35);
+}
+
+h1{
+    margin-bottom:18px;
+}
+
+.stats{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:12px;
+}
+
+.stat{
+    background:#334155;
+    border-radius:12px;
+    padding:14px;
+    text-align:center;
+}
+
+.stat h2{
+    font-size:28px;
+    margin-bottom:5px;
+}
+
+.progress{
+    margin-top:18px;
+    height:14px;
+    background:#334155;
+    border-radius:20px;
+    overflow:hidden;
+}
+
+.progress-fill{
+    height:100%;
+    width:0%;
+    background:#22c55e;
+    transition:.3s;
+}
+
+.target{
+    margin-top:15px;
+    font-size:15px;
+    color:#cbd5e1;
+}
+
+.week{
+    background:#1e293b;
+    padding:18px;
+    border-radius:18px;
+    margin-bottom:20px;
+}
+
+.week h2{
+    margin-bottom:15px;
+}
+
+.day{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin:14px 0;
+    flex-wrap:wrap;
+}
+
+.slots{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+}
+
+.slot{
+    width:42px;
+    height:42px;
+    border-radius:50%;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    cursor:pointer;
+    font-weight:bold;
+    transition:.25s;
+    user-select:none;
+}
+
+.attended{
+    background:#22c55e;
+}
+
+.missed{
+    background:#ef4444;
+}
+
+.slot:hover{
+    transform:scale(1.08);
+}
+
+.legend{
+    display:flex;
+    gap:20px;
+    margin-top:25px;
+    color:#cbd5e1;
+}
+
+.dot{
+    width:16px;
+    height:16px;
+    border-radius:50%;
+    display:inline-block;
+    margin-right:6px;
+}
+
+.green{
+    background:#22c55e;
+}
+
+.red{
+    background:#ef4444;
+}
+
+@media(max-width:650px){
+
+.stats{
+grid-template-columns:repeat(2,1fr);
+}
+
+.day{
+flex-direction:column;
+align-items:flex-start;
+gap:10px;
+}
+
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card">
+
+<h1>Attendance Tracker</h1>
+
+<div class="stats">
+
+<div class="stat">
+<h2 id="attendedCount"></h2>
+<p>Attended</p>
+</div>
+
+<div class="stat">
+<h2 id="totalCount"></h2>
+<p>Total</p>
+</div>
+
+<div class="stat">
+<h2 id="percentage"></h2>
+<p>Attendance</p>
+</div>
+
+<div class="stat">
+<h2 id="buffer"></h2>
+<p>Buffer</p>
+</div>
+
+</div>
+
+<div class="progress">
+<div class="progress-fill" id="bar"></div>
+</div>
+
+<div class="target">
+Target: <b>65%</b>
+</div>
+
+</div>
+
+<div id="weeks"></div>
+
+<div class="legend">
+<div><span class="dot green"></span>Attended</div>
+<div><span class="dot red"></span>Missed</div>
+</div>
+
+</div>
+
+<script>
+
+const INITIAL_ATTENDED = 31;
+const INITIAL_TOTAL = 70;
+
+const schedule = [
+
+["Week 1",[
+["Tue 14 Jul",3],
+["Wed 15 Jul",3],
+["Thu 16 Jul",4],
+["Fri 17 Jul",3]
+]],
+
+["Week 2",[
+["Tue 21 Jul",3],
+["Wed 22 Jul",3],
+["Thu 23 Jul",4],
+["Fri 24 Jul",3],
+["Sat 25 Jul",4]
+]],
+
+["Week 3",[
+["Tue 28 Jul",3],
+["Wed 29 Jul",3],
+["Thu 30 Jul",4],
+["Fri 31 Jul",3]
+]],
+
+["Week 4",[
+["Tue 4 Aug",3],
+["Wed 5 Aug",3],
+["Thu 6 Aug",4],
+["Fri 7 Aug",3],
+["Sat 8 Aug",4]
+]],
+
+["Week 5",[
+["Tue 11 Aug",3],
+["Wed 12 Aug",3],
+["Thu 13 Aug",4],
+["Fri 14 Aug",3]
+]]
+
+];
+
+let data = JSON.parse(localStorage.getItem("attendance"));
+
+if(!data){
+
+data=[];
+
+schedule.forEach(week=>{
+
+week[1].forEach(day=>{
+
+for(let i=0;i<day[1];i++)
+data.push(true);
+
+});
+
+});
+
+}
+
+const weeks=document.getElementById("weeks");
+
+let index=0;
+schedule.forEach((week)=>{
+
+const card=document.createElement("div");
+card.className="week";
+
+const title=document.createElement("h2");
+title.textContent=week[0];
+
+card.appendChild(title);
+
+week[1].forEach(day=>{
+
+const row=document.createElement("div");
+row.className="day";
+
+const name=document.createElement("strong");
+name.textContent=day[0];
+
+const slots=document.createElement("div");
+slots.className="slots";
+
+for(let i=0;i<day[1];i++){
+
+const slot=document.createElement("div");
+
+slot.className="slot";
+
+slot.dataset.index=index;
+
+slot.onclick=()=>{
+
+data[slot.dataset.index]=!data[slot.dataset.index];
+
+save();
+
+render();
+
+};
+
+slots.appendChild(slot);
+
+index++;
+
+}
+
+row.appendChild(name);
+row.appendChild(slots);
+
+card.appendChild(row);
+
+});
+
+weeks.appendChild(card);
+
+});
+
+function save(){
+
+localStorage.setItem("attendance",JSON.stringify(data));
+
+}
+
+function render(){
+
+let attended=INITIAL_ATTENDED;
+let total=INITIAL_TOTAL;
+
+const slots=document.querySelectorAll(".slot");
+
+slots.forEach((slot,i)=>{
+
+total++;
+
+if(data[i]){
+
+attended++;
+
+slot.classList.remove("missed");
+slot.classList.add("attended");
+slot.textContent="✓";
+
+}else{
+
+slot.classList.remove("attended");
+slot.classList.add("missed");
+slot.textContent="✕";
+
+}
+
+});
+
+const percent=(attended/total*100);
+
+document.getElementById("attendedCount").textContent=attended;
+
+document.getElementById("totalCount").textContent=total;
+
+document.getElementById("percentage").textContent=percent.toFixed(2)+"%";
+
+document.getElementById("bar").style.width=Math.min(percent,100)+"%";
+
+if(percent<60){
+
+document.getElementById("bar").style.background="#ef4444";
+
+}else if(percent<65){
+
+document.getElementById("bar").style.background="#f59e0b";
+
+}else{
+
+document.getElementById("bar").style.background="#22c55e";
+
+}
+
+const need=Math.ceil(total*0.65);
+
+const buffer=Math.max(0,attended-need);
+
+document.getElementById("buffer").textContent=buffer;
+
+}
+
+render();
+
+</script>
+
+</body>
+</html>
